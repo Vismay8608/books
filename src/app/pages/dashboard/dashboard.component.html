@@ -1,0 +1,156 @@
+<!-- Page Title -->
+<div class="page-title">
+  <h1>Dashboard</h1>
+  <p>Welcome back! Here's your dashboard overview.</p>
+</div>
+
+<!-- Stat Cards Row -->
+<div class="row g-4 mb-4">
+  <div class="col-12 col-sm-6 col-lg-3" *ngFor="let stat of statCards">
+    <div class="card card-stat">
+      <div class="stat-content">
+        <h5>{{ stat.title }}</h5>
+        <p class="stat-value">{{ stat.value }}</p>
+        <small class="stat-change" [class.negative]="stat.change < 0">
+          <i [ngClass]="stat.change >= 0 ? 'fas fa-arrow-trend-up' : 'fas fa-arrow-trend-down'"></i>
+          {{ stat.change > 0 ? '+' : '' }}{{ stat.change }}%
+        </small>
+      </div>
+      <div class="stat-icon" [ngClass]="'bg-' + stat.color + '-light'">
+        <i [ngClass]="stat.icon"></i>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Charts and Tables Row -->
+<div class="row g-4 mb-4">
+  <!-- Chart Card -->
+  <div class="col-12 col-lg-8">
+    <div class="card">
+      <div class="card-header">
+        <h5 class="card-title">Sales Overview</h5>
+      </div>
+      <div class="card-body">
+        <div style="height: 300px; display: flex; align-items: center; justify-content: center; background-color: #f3f4f6; border-radius: 0.5rem;">
+          <p class="text-muted">Chart placeholder - Add Chart.js or similar library</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Quick Stats Card -->
+  <div class="col-12 col-lg-4">
+    <div class="card">
+      <div class="card-header">
+        <h5 class="card-title">Quick Stats</h5>
+      </div>
+      <div class="card-body">
+        <div class="mb-3">
+          <div class="d-flex justify-content-between mb-2">
+            <span class="text-muted">Conversion Rate</span>
+            <span class="fw-bold">75%</span>
+          </div>
+          <div class="progress" style="height: 6px;">
+            <div class="progress-bar" style="width: 75%;"></div>
+          </div>
+        </div>
+        <div class="mb-3">
+          <div class="d-flex justify-content-between mb-2">
+            <span class="text-muted">Growth Rate</span>
+            <span class="fw-bold">62%</span>
+          </div>
+          <div class="progress" style="height: 6px;">
+            <div class="progress-bar bg-success" style="width: 62%;"></div>
+          </div>
+        </div>
+        <div>
+          <div class="d-flex justify-content-between mb-2">
+            <span class="text-muted">Engagement</span>
+            <span class="fw-bold">88%</span>
+          </div>
+          <div class="progress" style="height: 6px;">
+            <div class="progress-bar bg-info" style="width: 88%;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Recent Books Table -->
+<div class="row">
+  <div class="col-12">
+    <div class="card">
+      <div class="card-header">
+        <div class="d-flex justify-content-between align-items-center">
+          <h5 class="card-title">Recent Books</h5>
+          <button class="btn btn-soft-primary btn-sm">
+            <i class="fas fa-plus me-2"></i> Add Book
+          </button>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="table-responsive">
+          <table class="table table-hover">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Title</th>
+                <th>Author</th>
+                <th>Price</th>
+                <th>Status</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let book of recentBooks">
+                <td>{{ book.id }}</td>
+                <td>{{ book.title }}</td>
+                <td>{{ book.author }}</td>
+                <td>{{ book.price }}</td>
+                <td>
+                  <span
+                    class="badge"
+                    [ngClass]="book.status === 'Available' ? 'badge-success' : 'badge-danger'"
+                  >
+                    {{ book.status }}
+                  </span>
+                </td>
+                <td>
+                  <button class="btn btn-sm btn-primary me-2">
+                    <i class="fas fa-edit"></i>
+                  </button>
+                  <button class="btn btn-sm btn-danger">
+                    <i class="fas fa-trash"></i>
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card-footer">
+        <nav aria-label="Page navigation">
+          <ul class="pagination justify-content-end">
+            <li class="page-item disabled">
+              <a class="page-link" href="#">Previous</a>
+            </li>
+            <li class="page-item active">
+              <a class="page-link" href="#">1</a>
+            </li>
+            <li class="page-item">
+              <a class="page-link" href="#">2</a>
+            </li>
+            <li class="page-item">
+              <a class="page-link" href="#">3</a>
+            </li>
+            <li class="page-item">
+              <a class="page-link" href="#">Next</a>
+            </li>
+          </ul>
+        </nav>
+      </div>
+    </div>
+  </div>
+</div>

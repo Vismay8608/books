@@ -1,0 +1,34 @@
+:host {
+  display: block;
+}
+
+.dropdown-menu.show {
+  opacity: 1;
+  pointer-events: all;
+}
+
+.dropdown-item {
+  display: block;
+  padding: 0.5rem 1rem;
+  color: #374151;
+  text-decoration: none;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background-color: #e8ecf9;
+    color: #3c50e0;
+  }
+}
+
+.dropdown-header {
+  padding: 0.5rem 1rem;
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
+.dropdown-divider {
+  height: 0;
+  margin: 0.5rem 0;
+  overflow: hidden;
+  border-top: 1px solid #e5e7eb;
+}

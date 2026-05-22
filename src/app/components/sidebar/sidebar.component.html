@@ -1,0 +1,58 @@
+<div [class.active]="isMobileOpen()" class="sidebar">
+  <!-- Sidebar Brand -->
+  <div class="sidebar-brand">
+    <i class="fas fa-book"></i>
+    <span>BookHub</span>
+  </div>
+
+  <!-- Sidebar Menu -->
+  <ul class="sidebar-menu">
+    <li class="sidebar-item" *ngFor="let item of menuItems">
+      <!-- Main Link -->
+      <a
+        *ngIf="!item.children"
+        [routerLink]="item.route"
+        routerLinkActive="active"
+        [routerLinkActiveOptions]="{ exact: true }"
+        class="sidebar-link"
+        (click)="closeMobileSidebar()"
+      >
+        <i [ngClass]="item.icon"></i>
+        <span>{{ item.label }}</span>
+      </a>
+
+      <!-- Collapsible Link -->
+      <a
+        *ngIf="item.children"
+        href="javascript:void(0)"
+        class="sidebar-link"
+        [class.active]="expandedItems()[item.label]"
+        (click)="toggleSubmenu(item.label); $event.preventDefault()"
+      >
+        <i [ngClass]="item.icon"></i>
+        <span>{{ item.label }}</span>
+        <i class="fas fa-chevron-down" style="margin-left: auto; font-size: 0.7rem;"></i>
+      </a>
+
+      <!-- Submenu -->
+      <ul
+        class="sidebar-submenu"
+        [class.active]="expandedItems()[item.label]"
+        *ngIf="item.children"
+      >
+        <li class="sidebar-item" *ngFor="let subitem of item.children">
+          <a
+            [routerLink]="subitem.route"
+            routerLinkActive="active"
+            [routerLinkActiveOptions]="{ exact: true }"
+            class="sidebar-link"
+            (click)="closeMobileSidebar()"
+          >
+            <i [ngClass]="subitem.icon"></i>
+            <span>{{ subitem.label }}</span>
+          </a>
+        </li>
+      </ul>
+    </li>
+  </ul>
+</div>

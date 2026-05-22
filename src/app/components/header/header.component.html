@@ -1,0 +1,77 @@
+<header class="header">
+  <div class="header-wrapper">
+    <!-- Left Section -->
+    <div class="header-left">
+      <button class="hamburger" (click)="toggleMobileSidebar()">
+        <i class="fas fa-bars"></i>
+      </button>
+    </div>
+
+    <!-- Right Section -->
+    <div class="header-action">
+      <!-- Notification -->
+      <div class="notification-icon" (click)="toggleNotifications()">
+        <i class="fas fa-bell"></i>
+        <span class="badge" *ngIf="notificationCount() > 0">{{ notificationCount() }}</span>
+
+        <!-- Notification Dropdown -->
+        <div
+          class="dropdown-menu show"
+          *ngIf="showNotifications()"
+          style="position: absolute; top: 100%; right: 0; width: 300px; display: block;"
+        >
+          <h6 class="dropdown-header">Notifications</h6>
+          <a href="#" class="dropdown-item">
+            <div class="d-flex justify-content-between">
+              <span>New book added</span>
+              <small class="text-muted">5m ago</small>
+            </div>
+          </a>
+          <a href="#" class="dropdown-item">
+            <div class="d-flex justify-content-between">
+              <span>User registered</span>
+              <small class="text-muted">1h ago</small>
+            </div>
+          </a>
+          <a href="#" class="dropdown-item">
+            <div class="d-flex justify-content-between">
+              <span>Report generated</span>
+              <small class="text-muted">2h ago</small>
+            </div>
+          </a>
+          <div class="dropdown-divider"></div>
+          <a href="#" class="dropdown-item text-center text-primary">
+            <small>View all</small>
+          </a>
+        </div>
+      </div>
+
+      <!-- User Profile -->
+      <div class="user-profile dropdown" (click)="toggleUserMenu()">
+        <div class="user-avatar">{{ currentUser().name.charAt(0) }}</div>
+        <div class="user-info">
+          <p class="user-name">{{ currentUser().name }}</p>
+          <p class="user-role">{{ currentUser().role }}</p>
+        </div>
+
+        <!-- User Dropdown Menu -->
+        <div
+          class="dropdown-menu show"
+          *ngIf="showUserMenu()"
+          style="position: absolute; top: 100%; right: 0; width: 200px; display: block; margin-top: 0.5rem;"
+        >
+          <a href="#" class="dropdown-item">
+            <i class="fas fa-user me-2"></i> My Profile
+          </a>
+          <a href="#" class="dropdown-item">
+            <i class="fas fa-cog me-2"></i> Settings
+          </a>
+          <div class="dropdown-divider"></div>
+          <a href="#" class="dropdown-item" (click)="logout()">
+            <i class="fas fa-sign-out-alt me-2"></i> Logout
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
