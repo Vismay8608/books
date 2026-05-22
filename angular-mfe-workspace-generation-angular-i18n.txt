@@ -1,0 +1,2022 @@
+ANGULAR 21+ PRODUCTION-GRADE MICROFRONTEND WORKSPACE GENERATION SPEC
+====================================================================
+
+Purpose
+-------
+Use this TXT as a ready-to-paste generation prompt / implementation blueprint for creating a latest stable Angular enterprise workspace with:
+
+- Angular latest stable production setup; as of 2026-05-22 use Angular 21.x stable, not Angular 22 RC.
+- Multi-project Angular workspace.
+- Webpack Module Federation microfrontend architecture.
+- Host shell application.
+- Admin remote microfrontend.
+- Admin Asset Management feature with Create, Edit, View, Search and Manage Asset components.
+- Production build configurations.
+- Multilingual setup using Angular built-in i18n / @angular/localize. No third-party translation provider.
+- Guards, interceptors, services, utilities, theme components and layouts.
+- Shared utilities managed inside the shell application, not as a separate Angular library.
+- Strict TypeScript, SCSS, lazy loading, environment configuration and CI-ready scripts.
+
+Recommended versions
+--------------------
+Node.js: active LTS compatible with Angular 21
+Package manager: npm or pnpm
+Angular CLI: latest Angular 21 stable
+Microfrontend package: @angular-architects/module-federation compatible with Angular 21
+Translation: Angular built-in i18n using @angular/localize. Do not use Transloco, ngx-translate or any third-party translation provider.
+
+============================================================
+1. CREATE WORKSPACE AND PROJECTS
+============================================================
+
+Run these commands from an empty folder:
+
+```bash
+npm install -g @angular/cli@latest
+
+ng new enterprise-mfe-workspace \
+  --create-application=false \
+  --style=scss \
+  --strict=true \
+  --package-manager=npm
+
+cd enterprise-mfe-workspace
+
+ng generate application shell \
+  --routing=true \
+  --style=scss \
+  --standalone=true
+
+ng generate application admin \
+  --routing=true \
+  --style=scss \
+  --standalone=true
+
+ng generate library shared-ui
+ng generate library shared-data-access
+```
+
+Install production dependencies:
+
+```bash
+npm install @angular-architects/module-federation --save-dev
+ng add @angular/localize
+npm install uuid
+npm install --save-dev webpack webpack-cli webpack-merge
+```
+
+Add Module Federation:
+
+```bash
+ng add @angular-architects/module-federation --project shell --type host --port 4200
+ng add @angular-architects/module-federation --project admin --type remote --port 4201
+```
+
+If the schematic asks for standalone routing support, answer YES.
+
+============================================================
+2. TARGET WORKSPACE STRUCTURE
+============================================================
+
+Generate or refactor the workspace into this structure:
+
+```text
+enterprise-mfe-workspace/
+  angular.json
+  package.json
+  tsconfig.json
+  tsconfig.base.json
+  README.md
+
+  projects/
+    shared-ui/
+      src/lib/
+        components/
+          button/
+          card/
+          dialog/
+          table/
+          loader/
+        directives/
+        pipes/
+        index.ts
+
+    shared-data-access/
+      src/lib/
+        models/
+          api-response.model.ts
+          asset.model.ts
+          user.model.ts
+        services/
+          api-client.service.ts
+        index.ts
+
+  # No shared-util Angular library.
+  # Shell-owned shared utilities live inside projects/shell/src/app/shared.
+  # Admin remote must not import shell internals directly.
+
+  src/ or apps/ depending on Angular CLI project layout
+
+  projects/shell/src/
+    assets/
+      config/
+        remote-manifest.json
+      i18n/
+        en.json
+        hi.json
+    environments/
+      environment.ts
+      environment.development.ts
+      environment.production.ts
+    app/
+      app.component.ts
+      app.config.ts
+      app.routes.ts
+
+      shared/
+        constants/
+          app.constants.ts
+          route.constants.ts
+          storage-key.constants.ts
+        utilities/
+          date.util.ts
+          string.util.ts
+          object.util.ts
+          route.util.ts
+          permission.util.ts
+          validation.util.ts
+        validators/
+          common.validators.ts
+        types/
+          common.types.ts
+        index.ts
+
+      core/
+        config/
+          app-config.model.ts
+          app-config.service.ts
+          remote-manifest.service.ts
+        guards/
+          auth.guard.ts
+          role.guard.ts
+          mfe-available.guard.ts
+        interceptors/
+          auth-token.interceptor.ts
+          error.interceptor.ts
+          language.interceptor.ts
+          correlation-id.interceptor.ts
+        services/
+          auth.service.ts
+          logger.service.ts
+          notification.service.ts
+          storage.service.ts
+          locale.service.ts
+        utilities/
+          route-utils.ts
+          token-utils.ts
+          permission-utils.ts
+        theme/
+          components/
+            app-header/
+              app-header.component.ts
+              app-header.component.html
+              app-header.component.scss
+            app-sidebar/
+              app-sidebar.component.ts
+              app-sidebar.component.html
+              app-sidebar.component.scss
+            app-footer/
+              app-footer.component.ts
+              app-footer.component.html
+              app-footer.component.scss
+            breadcrumbs/
+              breadcrumbs.component.ts
+              breadcrumbs.component.html
+              breadcrumbs.component.scss
+            language-switcher/
+              language-switcher.component.ts
+              language-switcher.component.html
+              language-switcher.component.scss
+          layouts/
+            shell-layout/
+              shell-layout.component.ts
+              shell-layout.component.html
+              shell-layout.component.scss
+            auth-layout/
+              auth-layout.component.ts
+              auth-layout.component.html
+              auth-layout.component.scss
+            error-layout/
+              error-layout.component.ts
+              error-layout.component.html
+              error-layout.component.scss
+
+      modules/
+        dashboard/
+          dashboard.routes.ts
+          dashboard.component.ts
+        auth/
+          auth.routes.ts
+          login/
+          logout/
+        errors/
+          not-found/
+          forbidden/
+          remote-unavailable/
+
+  projects/admin/src/
+    assets/
+      i18n/
+        en.json
+        hi.json
+    environments/
+      environment.ts
+      environment.development.ts
+      environment.production.ts
+    app/
+      app.component.ts
+      app.config.ts
+      app.routes.ts
+      remote-entry/
+        entry.routes.ts
+
+      core/
+        config/
+          admin-config.service.ts
+        guards/
+          admin-auth.guard.ts
+          asset-permission.guard.ts
+        interceptors/
+          admin-api-prefix.interceptor.ts
+        services/
+          admin-context.service.ts
+          admin-menu.service.ts
+        utilities/
+          admin-route-utils.ts
+        theme/
+          components/
+            admin-toolbar/
+            admin-sidebar-menu/
+            admin-page-title/
+          layouts/
+            admin-layout/
+            admin-feature-layout/
+
+      services/
+        asset.service.ts
+        asset-state.service.ts
+
+      interceptors/
+        asset-error.interceptor.ts
+
+      utilities/
+        asset-form.mapper.ts
+        asset-validators.ts
+        asset-status.util.ts
+
+      modules/
+        admin-dashboard/
+          admin-dashboard.routes.ts
+          admin-dashboard.component.ts
+
+        asset-management/
+          asset-management.routes.ts
+          models/
+            asset.model.ts
+            asset-filter.model.ts
+            asset-form.model.ts
+          services/
+            asset-management.facade.ts
+            asset-api.service.ts
+          components/
+            create-asset/
+              create-asset.component.ts
+              create-asset.component.html
+              create-asset.component.scss
+            edit-asset/
+              edit-asset.component.ts
+              edit-asset.component.html
+              edit-asset.component.scss
+            view-asset/
+              view-asset.component.ts
+              view-asset.component.html
+              view-asset.component.scss
+            search-assets/
+              search-assets.component.ts
+              search-assets.component.html
+              search-assets.component.scss
+            manage-assets/
+              manage-assets.component.ts
+              manage-assets.component.html
+              manage-assets.component.scss
+          pages/
+            asset-management-shell/
+              asset-management-shell.component.ts
+              asset-management-shell.component.html
+              asset-management-shell.component.scss
+```
+
+============================================================
+3. ANGULAR CLI GENERATION COMMANDS
+============================================================
+
+Run these commands after creating the projects.
+If Angular CLI project paths differ, adjust `--project` and import paths accordingly.
+
+Shell shared utilities, core, theme, layouts:
+
+```bash
+mkdir -p projects/shell/src/app/shared/constants
+mkdir -p projects/shell/src/app/shared/utilities
+mkdir -p projects/shell/src/app/shared/validators
+mkdir -p projects/shell/src/app/shared/types
+
+touch projects/shell/src/app/shared/constants/app.constants.ts
+touch projects/shell/src/app/shared/constants/route.constants.ts
+touch projects/shell/src/app/shared/constants/storage-key.constants.ts
+touch projects/shell/src/app/shared/utilities/date.util.ts
+touch projects/shell/src/app/shared/utilities/string.util.ts
+touch projects/shell/src/app/shared/utilities/object.util.ts
+touch projects/shell/src/app/shared/utilities/route.util.ts
+touch projects/shell/src/app/shared/utilities/permission.util.ts
+touch projects/shell/src/app/shared/utilities/validation.util.ts
+touch projects/shell/src/app/shared/validators/common.validators.ts
+touch projects/shell/src/app/shared/types/common.types.ts
+touch projects/shell/src/app/shared/index.ts
+
+ng g c core/theme/components/app-header --project shell --standalone --style=scss
+ng g c core/theme/components/app-sidebar --project shell --standalone --style=scss
+ng g c core/theme/components/app-footer --project shell --standalone --style=scss
+ng g c core/theme/components/breadcrumbs --project shell --standalone --style=scss
+ng g c core/theme/components/language-switcher --project shell --standalone --style=scss
+
+ng g c core/theme/layouts/shell-layout --project shell --standalone --style=scss
+ng g c core/theme/layouts/auth-layout --project shell --standalone --style=scss
+ng g c core/theme/layouts/error-layout --project shell --standalone --style=scss
+
+ng g s core/services/auth --project shell
+ng g s core/services/logger --project shell
+ng g s core/services/notification --project shell
+ng g s core/services/storage --project shell
+ng g s core/services/locale --project shell
+ng g s core/config/app-config --project shell
+ng g s core/config/remote-manifest --project shell
+
+touch projects/shell/src/app/core/guards/auth.guard.ts
+touch projects/shell/src/app/core/guards/role.guard.ts
+touch projects/shell/src/app/core/guards/mfe-available.guard.ts
+
+touch projects/shell/src/app/core/interceptors/auth-token.interceptor.ts
+touch projects/shell/src/app/core/interceptors/error.interceptor.ts
+touch projects/shell/src/app/core/interceptors/language.interceptor.ts
+touch projects/shell/src/app/core/interceptors/correlation-id.interceptor.ts
+```
+
+Shell feature modules:
+
+```bash
+ng g c modules/dashboard/dashboard --project shell --standalone --style=scss
+ng g c modules/auth/login --project shell --standalone --style=scss
+ng g c modules/auth/logout --project shell --standalone --style=scss
+ng g c modules/errors/not-found --project shell --standalone --style=scss
+ng g c modules/errors/forbidden --project shell --standalone --style=scss
+ng g c modules/errors/remote-unavailable --project shell --standalone --style=scss
+```
+
+Admin core, theme, layouts:
+
+```bash
+ng g c core/theme/components/admin-toolbar --project admin --standalone --style=scss
+ng g c core/theme/components/admin-sidebar-menu --project admin --standalone --style=scss
+ng g c core/theme/components/admin-page-title --project admin --standalone --style=scss
+ng g c core/theme/layouts/admin-layout --project admin --standalone --style=scss
+ng g c core/theme/layouts/admin-feature-layout --project admin --standalone --style=scss
+
+ng g s core/config/admin-config --project admin
+ng g s core/services/admin-context --project admin
+ng g s core/services/admin-menu --project admin
+ng g s services/asset --project admin
+ng g s services/asset-state --project admin
+
+touch projects/admin/src/app/core/guards/admin-auth.guard.ts
+touch projects/admin/src/app/core/guards/asset-permission.guard.ts
+touch projects/admin/src/app/core/interceptors/admin-api-prefix.interceptor.ts
+touch projects/admin/src/app/interceptors/asset-error.interceptor.ts
+```
+
+Admin Asset Management feature:
+
+```bash
+ng g c modules/admin-dashboard/admin-dashboard --project admin --standalone --style=scss
+
+ng g c modules/asset-management/pages/asset-management-shell --project admin --standalone --style=scss
+ng g c modules/asset-management/components/create-asset --project admin --standalone --style=scss
+ng g c modules/asset-management/components/edit-asset --project admin --standalone --style=scss
+ng g c modules/asset-management/components/view-asset --project admin --standalone --style=scss
+ng g c modules/asset-management/components/search-assets --project admin --standalone --style=scss
+ng g c modules/asset-management/components/manage-assets --project admin --standalone --style=scss
+
+ng g s modules/asset-management/services/asset-api --project admin
+ng g s modules/asset-management/services/asset-management-facade --project admin
+
+touch projects/admin/src/app/modules/asset-management/models/asset.model.ts
+touch projects/admin/src/app/modules/asset-management/models/asset-filter.model.ts
+touch projects/admin/src/app/modules/asset-management/models/asset-form.model.ts
+touch projects/admin/src/app/modules/asset-management/asset-management.routes.ts
+touch projects/admin/src/app/remote-entry/entry.routes.ts
+```
+
+============================================================
+4. SHELL-OWNED SHARED UTILITIES, NO SHARED-UTIL LIBRARY
+============================================================
+
+Use this structure instead of creating a `shared-util` Angular library:
+
+```text
+projects/shell/src/app/shared/
+  constants/
+    app.constants.ts
+    route.constants.ts
+    storage-key.constants.ts
+  utilities/
+    date.util.ts
+    string.util.ts
+    object.util.ts
+    route.util.ts
+    permission.util.ts
+    validation.util.ts
+  validators/
+    common.validators.ts
+  types/
+    common.types.ts
+  index.ts
+```
+
+Rules:
+- Shell can import from `@shell-shared` or relative shell paths.
+- Admin remote must not import from `projects/shell/src/app/shared`.
+- Keep remote deployability independent.
+- If a utility is truly cross-application, either duplicate the small pure function in the remote or promote it later to a proper shared package/library.
+- Keep shell shared utilities pure and framework-light where possible.
+
+Recommended path alias in `tsconfig.base.json`:
+
+```json
+{
+  "compilerOptions": {
+    "paths": {
+      "@shell-shared": ["projects/shell/src/app/shared/index.ts"],
+      "@shell-shared/*": ["projects/shell/src/app/shared/*"]
+    }
+  }
+}
+```
+
+Sample `projects/shell/src/app/shared/index.ts`:
+
+```ts
+export * from './constants/app.constants';
+export * from './constants/route.constants';
+export * from './constants/storage-key.constants';
+export * from './utilities/date.util';
+export * from './utilities/string.util';
+export * from './utilities/object.util';
+export * from './utilities/route.util';
+export * from './utilities/permission.util';
+export * from './utilities/validation.util';
+export * from './validators/common.validators';
+export * from './types/common.types';
+```
+
+Sample shell shared utilities:
+
+`projects/shell/src/app/shared/constants/storage-key.constants.ts`
+
+```ts
+export const STORAGE_KEYS = {
+  accessToken: 'access_token',
+  refreshToken: 'refresh_token',
+  selectedLanguage: 'selected_language',
+  theme: 'theme'
+} as const;
+```
+
+`projects/shell/src/app/shared/utilities/permission.util.ts`
+
+```ts
+export function hasAnyRole(userRoles: readonly string[], requiredRoles: readonly string[]): boolean {
+  if (!requiredRoles.length) return true;
+  return requiredRoles.some(role => userRoles.includes(role));
+}
+
+export function hasPermission(userPermissions: readonly string[], permission: string): boolean {
+  return userPermissions.includes(permission);
+}
+```
+
+`projects/shell/src/app/shared/utilities/string.util.ts`
+
+```ts
+export function isBlank(value: string | null | undefined): boolean {
+  return !value || value.trim().length === 0;
+}
+
+export function toTitleCase(value: string): string {
+  return value
+    .toLowerCase()
+    .split(' ')
+    .filter(Boolean)
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+}
+```
+
+`projects/shell/src/app/shared/validators/common.validators.ts`
+
+```ts
+import { AbstractControl, ValidationErrors, ValidatorFn } from '@angular/forms';
+
+export function noWhitespaceValidator(): ValidatorFn {
+  return (control: AbstractControl): ValidationErrors | null => {
+    const value = control.value as string | null | undefined;
+    return value && value.trim().length === 0 ? { whitespace: true } : null;
+  };
+}
+```
+
+============================================================
+5. PACKAGE.JSON SCRIPTS
+============================================================
+
+Add or update scripts:
+
+```json
+{
+  "scripts": {
+    "start": "ng serve shell --port 4200",
+    "start:shell": "ng serve shell --port 4200",
+    "start:admin": "ng serve admin --port 4201",
+    "start:all": "concurrently \"npm run start:shell\" \"npm run start:admin\"",
+    "build": "npm run build:shell && npm run build:admin",
+    "build:shell": "ng build shell --configuration production",
+    "build:admin": "ng build admin --configuration production",
+    "build:shell:en": "ng build shell --configuration production,en",
+    "build:shell:hi": "ng build shell --configuration production,hi",
+    "build:admin:en": "ng build admin --configuration production,en",
+    "build:admin:hi": "ng build admin --configuration production,hi",
+    "extract-i18n:shell": "ng extract-i18n shell --output-path projects/shell/src/locale --format xlf",
+    "extract-i18n:admin": "ng extract-i18n admin --output-path projects/admin/src/locale --format xlf",
+    "test": "ng test",
+    "lint": "ng lint",
+    "format": "prettier --write .",
+    "analyze:shell": "ng build shell --configuration production --stats-json",
+    "analyze:admin": "ng build admin --configuration production --stats-json"
+  },
+  "devDependencies": {
+    "concurrently": "latest"
+  }
+}
+```
+
+Install concurrently if using start:all:
+
+```bash
+npm install --save-dev concurrently prettier
+```
+
+============================================================
+6. MODULE FEDERATION WEBPACK CONFIG
+============================================================
+
+SHELL: projects/shell/webpack.config.js
+
+```js
+const { shareAll, withModuleFederationPlugin } = require('@angular-architects/module-federation/webpack');
+
+module.exports = withModuleFederationPlugin({
+  name: 'shell',
+
+  remotes: {
+    // Static development fallback. In production prefer dynamic manifest loading.
+    admin: 'http://localhost:4201/remoteEntry.js'
+  },
+
+  shared: {
+    ...shareAll({
+      singleton: true,
+      strictVersion: true,
+      requiredVersion: 'auto'
+    })
+  }
+});
+```
+
+SHELL PROD: projects/shell/webpack.prod.config.js
+
+```js
+const { shareAll, withModuleFederationPlugin } = require('@angular-architects/module-federation/webpack');
+
+module.exports = withModuleFederationPlugin({
+  name: 'shell',
+
+  // Keep remotes empty for dynamic runtime manifest in production.
+  // The shell loads remote URL from assets/config/remote-manifest.json.
+  remotes: {},
+
+  shared: {
+    ...shareAll({
+      singleton: true,
+      strictVersion: true,
+      requiredVersion: 'auto'
+    })
+  }
+});
+```
+
+ADMIN REMOTE: projects/admin/webpack.config.js
+
+```js
+const { shareAll, withModuleFederationPlugin } = require('@angular-architects/module-federation/webpack');
+
+module.exports = withModuleFederationPlugin({
+  name: 'admin',
+
+  filename: 'remoteEntry.js',
+
+  exposes: {
+    './Routes': './projects/admin/src/app/remote-entry/entry.routes.ts',
+    './AssetManagementRoutes': './projects/admin/src/app/modules/asset-management/asset-management.routes.ts'
+  },
+
+  shared: {
+    ...shareAll({
+      singleton: true,
+      strictVersion: true,
+      requiredVersion: 'auto'
+    })
+  }
+});
+```
+
+ADMIN PROD: projects/admin/webpack.prod.config.js
+
+```js
+const { shareAll, withModuleFederationPlugin } = require('@angular-architects/module-federation/webpack');
+
+module.exports = withModuleFederationPlugin({
+  name: 'admin',
+  filename: 'remoteEntry.js',
+
+  exposes: {
+    './Routes': './projects/admin/src/app/remote-entry/entry.routes.ts',
+    './AssetManagementRoutes': './projects/admin/src/app/modules/asset-management/asset-management.routes.ts'
+  },
+
+  shared: {
+    ...shareAll({
+      singleton: true,
+      strictVersion: true,
+      requiredVersion: 'auto'
+    })
+  }
+});
+```
+
+Important:
+- If your Angular workspace uses `src/app` instead of `projects/admin/src/app`, adjust expose paths.
+- Keep Angular and RxJS as singletons to avoid runtime duplication. Use Angular built-in localization; do not share any third-party translation package.
+- Use dynamic remotes for production deployments.
+
+============================================================
+7. ANGULAR.JSON PRODUCTION BUILD SETTINGS
+============================================================
+
+Ensure each application has production configuration similar to:
+
+```json
+{
+  "optimization": true,
+  "outputHashing": "all",
+  "sourceMap": false,
+  "namedChunks": false,
+  "extractLicenses": true,
+  "budgets": [
+    {
+      "type": "initial",
+      "maximumWarning": "700kb",
+      "maximumError": "1mb"
+    },
+    {
+      "type": "anyComponentStyle",
+      "maximumWarning": "8kb",
+      "maximumError": "12kb"
+    }
+  ]
+}
+```
+
+For Webpack Module Federation, ensure the custom webpack builder configuration generated by @angular-architects/module-federation remains wired for both shell and admin.
+
+============================================================
+8. REMOTE MANIFEST CONFIGURATION
+============================================================
+
+Create: projects/shell/src/assets/config/remote-manifest.json
+
+```json
+{
+  "admin": {
+    "remoteEntry": "http://localhost:4201/remoteEntry.js",
+    "remoteName": "admin",
+    "exposedModule": "./Routes",
+    "displayName": "Admin",
+    "routePath": "admin",
+    "enabled": true,
+    "requiredRoles": ["ADMIN", "ASSET_MANAGER"]
+  }
+}
+```
+
+Production example:
+
+```json
+{
+  "admin": {
+    "remoteEntry": "https://cdn.example.com/mfe/admin/v1/remoteEntry.js",
+    "remoteName": "admin",
+    "exposedModule": "./Routes",
+    "displayName": "Admin",
+    "routePath": "admin",
+    "enabled": true,
+    "requiredRoles": ["ADMIN", "ASSET_MANAGER"]
+  }
+}
+```
+
+RemoteManifestService should load this file during app initialization.
+
+============================================================
+9. SHELL ROUTING
+============================================================
+
+projects/shell/src/app/app.routes.ts
+
+```ts
+import { Routes } from '@angular/router';
+import { loadRemoteModule } from '@angular-architects/module-federation';
+import { authGuard } from './core/guards/auth.guard';
+import { roleGuard } from './core/guards/role.guard';
+import { mfeAvailableGuard } from './core/guards/mfe-available.guard';
+
+export const routes: Routes = [
+  {
+    path: '',
+    loadComponent: () =>
+      import('./core/theme/layouts/shell-layout/shell-layout.component')
+        .then(m => m.ShellLayoutComponent),
+    canActivate: [authGuard],
+    children: [
+      {
+        path: '',
+        pathMatch: 'full',
+        redirectTo: 'dashboard'
+      },
+      {
+        path: 'dashboard',
+        loadComponent: () =>
+          import('./modules/dashboard/dashboard.component')
+            .then(m => m.DashboardComponent)
+      },
+      {
+        path: 'admin',
+        canMatch: [mfeAvailableGuard, roleGuard],
+        data: {
+          remoteName: 'admin',
+          roles: ['ADMIN', 'ASSET_MANAGER']
+        },
+        loadChildren: () =>
+          loadRemoteModule({
+            type: 'module',
+            remoteEntry: 'http://localhost:4201/remoteEntry.js',
+            exposedModule: './Routes'
+          }).then(m => m.ADMIN_ROUTES)
+      }
+    ]
+  },
+  {
+    path: 'auth',
+    loadChildren: () => import('./modules/auth/auth.routes').then(m => m.AUTH_ROUTES)
+  },
+  {
+    path: 'forbidden',
+    loadComponent: () => import('./modules/errors/forbidden/forbidden.component').then(m => m.ForbiddenComponent)
+  },
+  {
+    path: 'remote-unavailable',
+    loadComponent: () => import('./modules/errors/remote-unavailable/remote-unavailable.component').then(m => m.RemoteUnavailableComponent)
+  },
+  {
+    path: '**',
+    loadComponent: () => import('./modules/errors/not-found/not-found.component').then(m => m.NotFoundComponent)
+  }
+];
+```
+
+For production, replace hard-coded remoteEntry with a dynamic manifest resolver.
+
+============================================================
+10. ADMIN REMOTE ROUTING
+============================================================
+
+projects/admin/src/app/remote-entry/entry.routes.ts
+
+```ts
+import { Routes } from '@angular/router';
+import { adminAuthGuard } from '../core/guards/admin-auth.guard';
+import { AdminLayoutComponent } from '../core/theme/layouts/admin-layout/admin-layout.component';
+
+export const ADMIN_ROUTES: Routes = [
+  {
+    path: '',
+    component: AdminLayoutComponent,
+    canActivate: [adminAuthGuard],
+    children: [
+      {
+        path: '',
+        pathMatch: 'full',
+        redirectTo: 'dashboard'
+      },
+      {
+        path: 'dashboard',
+        loadComponent: () =>
+          import('../modules/admin-dashboard/admin-dashboard.component')
+            .then(m => m.AdminDashboardComponent)
+      },
+      {
+        path: 'asset-management',
+        loadChildren: () =>
+          import('../modules/asset-management/asset-management.routes')
+            .then(m => m.ASSET_MANAGEMENT_ROUTES)
+      }
+    ]
+  }
+];
+```
+
+projects/admin/src/app/modules/asset-management/asset-management.routes.ts
+
+```ts
+import { Routes } from '@angular/router';
+import { assetPermissionGuard } from '../../core/guards/asset-permission.guard';
+import { AssetManagementShellComponent } from './pages/asset-management-shell/asset-management-shell.component';
+
+export const ASSET_MANAGEMENT_ROUTES: Routes = [
+  {
+    path: '',
+    component: AssetManagementShellComponent,
+    canActivateChild: [assetPermissionGuard],
+    children: [
+      {
+        path: '',
+        pathMatch: 'full',
+        redirectTo: 'manage'
+      },
+      {
+        path: 'manage',
+        loadComponent: () =>
+          import('./components/manage-assets/manage-assets.component')
+            .then(m => m.ManageAssetsComponent)
+      },
+      {
+        path: 'search',
+        loadComponent: () =>
+          import('./components/search-assets/search-assets.component')
+            .then(m => m.SearchAssetsComponent)
+      },
+      {
+        path: 'create',
+        loadComponent: () =>
+          import('./components/create-asset/create-asset.component')
+            .then(m => m.CreateAssetComponent)
+      },
+      {
+        path: ':assetId/view',
+        loadComponent: () =>
+          import('./components/view-asset/view-asset.component')
+            .then(m => m.ViewAssetComponent)
+      },
+      {
+        path: ':assetId/edit',
+        loadComponent: () =>
+          import('./components/edit-asset/edit-asset.component')
+            .then(m => m.EditAssetComponent)
+      }
+    ]
+  }
+];
+```
+
+============================================================
+11. APP CONFIG WITH INTERCEPTORS AND TRANSLATIONS
+============================================================
+
+projects/shell/src/app/app.config.ts
+
+```ts
+import { ApplicationConfig, LOCALE_ID, provideAppInitializer, inject } from '@angular/core';
+import { provideRouter, withComponentInputBinding, withInMemoryScrolling } from '@angular/router';
+import { provideHttpClient, withFetch, withInterceptors } from '@angular/common/http';
+import { routes } from './app.routes';
+import { authTokenInterceptor } from './core/interceptors/auth-token.interceptor';
+import { errorInterceptor } from './core/interceptors/error.interceptor';
+import { languageInterceptor } from './core/interceptors/language.interceptor';
+import { correlationIdInterceptor } from './core/interceptors/correlation-id.interceptor';
+import { RemoteManifestService } from './core/config/remote-manifest.service';
+import { LocaleService } from './core/services/locale.service';
+
+export function localeFactory(): string {
+  return document.documentElement.lang || localStorage.getItem('selected_language') || 'en';
+}
+
+export const appConfig: ApplicationConfig = {
+  providers: [
+    provideRouter(
+      routes,
+      withComponentInputBinding(),
+      withInMemoryScrolling({ scrollPositionRestoration: 'enabled' })
+    ),
+    provideHttpClient(
+      withFetch(),
+      withInterceptors([
+        correlationIdInterceptor,
+        languageInterceptor,
+        authTokenInterceptor,
+        errorInterceptor
+      ])
+    ),
+    {
+      provide: LOCALE_ID,
+      useFactory: localeFactory
+    },
+    provideAppInitializer(() => {
+      const manifest = inject(RemoteManifestService);
+      const locale = inject(LocaleService);
+      locale.initializeLocale();
+      return manifest.loadManifest();
+    })
+  ]
+};
+```
+
+projects/admin/src/app/app.config.ts should provide router, http client, admin interceptors and Angular built-in locale configuration similarly.
+
+============================================================
+12. GUARDS
+============================================================
+
+projects/shell/src/app/core/guards/auth.guard.ts
+
+```ts
+import { inject } from '@angular/core';
+import { CanActivateFn, Router } from '@angular/router';
+import { AuthService } from '../services/auth.service';
+
+export const authGuard: CanActivateFn = () => {
+  const auth = inject(AuthService);
+  const router = inject(Router);
+
+  if (auth.isAuthenticated()) {
+    return true;
+  }
+
+  return router.createUrlTree(['/auth/login']);
+};
+```
+
+projects/shell/src/app/core/guards/role.guard.ts
+
+```ts
+import { inject } from '@angular/core';
+import { CanMatchFn, Route, Router, UrlSegment } from '@angular/router';
+import { AuthService } from '../services/auth.service';
+
+export const roleGuard: CanMatchFn = (route: Route, segments: UrlSegment[]) => {
+  const auth = inject(AuthService);
+  const router = inject(Router);
+  const requiredRoles = route.data?.['roles'] as string[] | undefined;
+
+  if (!requiredRoles?.length || auth.hasAnyRole(requiredRoles)) {
+    return true;
+  }
+
+  return router.createUrlTree(['/forbidden']);
+};
+```
+
+projects/shell/src/app/core/guards/mfe-available.guard.ts
+
+```ts
+import { inject } from '@angular/core';
+import { CanMatchFn, Route, Router } from '@angular/router';
+import { RemoteManifestService } from '../config/remote-manifest.service';
+
+export const mfeAvailableGuard: CanMatchFn = (route: Route) => {
+  const manifest = inject(RemoteManifestService);
+  const router = inject(Router);
+  const remoteName = route.data?.['remoteName'] as string;
+
+  if (manifest.isRemoteEnabled(remoteName)) {
+    return true;
+  }
+
+  return router.createUrlTree(['/remote-unavailable']);
+};
+```
+
+projects/admin/src/app/core/guards/asset-permission.guard.ts
+
+```ts
+import { inject } from '@angular/core';
+import { CanActivateChildFn, Router } from '@angular/router';
+import { AdminContextService } from '../services/admin-context.service';
+
+export const assetPermissionGuard: CanActivateChildFn = () => {
+  const context = inject(AdminContextService);
+  const router = inject(Router);
+
+  if (context.hasPermission('ASSET_MANAGEMENT_ACCESS')) {
+    return true;
+  }
+
+  return router.createUrlTree(['/forbidden']);
+};
+```
+
+============================================================
+13. HTTP INTERCEPTORS
+============================================================
+
+projects/shell/src/app/core/interceptors/auth-token.interceptor.ts
+
+```ts
+import { HttpInterceptorFn } from '@angular/common/http';
+import { inject } from '@angular/core';
+import { AuthService } from '../services/auth.service';
+
+export const authTokenInterceptor: HttpInterceptorFn = (req, next) => {
+  const token = inject(AuthService).getAccessToken();
+
+  if (!token) {
+    return next(req);
+  }
+
+  return next(req.clone({
+    setHeaders: {
+      Authorization: `Bearer ${token}`
+    }
+  }));
+};
+```
+
+projects/shell/src/app/core/interceptors/language.interceptor.ts
+
+```ts
+import { HttpInterceptorFn } from '@angular/common/http';
+import { inject } from '@angular/core';
+import { LocaleService } from '../services/locale.service';
+
+export const languageInterceptor: HttpInterceptorFn = (req, next) => {
+  const lang = inject(LocaleService).getCurrentLocale();
+
+  return next(req.clone({
+    setHeaders: {
+      'Accept-Language': lang || 'en'
+    }
+  }));
+};
+```
+
+projects/shell/src/app/core/interceptors/correlation-id.interceptor.ts
+
+```ts
+import { HttpInterceptorFn } from '@angular/common/http';
+import { v4 as uuidv4 } from 'uuid';
+
+export const correlationIdInterceptor: HttpInterceptorFn = (req, next) => {
+  return next(req.clone({
+    setHeaders: {
+      'X-Correlation-Id': uuidv4()
+    }
+  }));
+};
+```
+
+projects/shell/src/app/core/interceptors/error.interceptor.ts
+
+```ts
+import { HttpErrorResponse, HttpInterceptorFn } from '@angular/common/http';
+import { inject } from '@angular/core';
+import { Router } from '@angular/router';
+import { catchError, throwError } from 'rxjs';
+import { NotificationService } from '../services/notification.service';
+
+export const errorInterceptor: HttpInterceptorFn = (req, next) => {
+  const router = inject(Router);
+  const notification = inject(NotificationService);
+
+  return next(req).pipe(
+    catchError((error: HttpErrorResponse) => {
+      if (error.status === 401) {
+        router.navigate(['/auth/login']);
+      } else if (error.status === 403) {
+        router.navigate(['/forbidden']);
+      } else {
+        notification.error(error.error?.message || 'Something went wrong');
+      }
+
+      return throwError(() => error);
+    })
+  );
+};
+```
+
+============================================================
+14. SERVICES
+============================================================
+
+projects/shell/src/app/core/config/remote-manifest.service.ts
+
+```ts
+import { HttpClient } from '@angular/common/http';
+import { inject, Injectable, signal } from '@angular/core';
+import { firstValueFrom } from 'rxjs';
+
+export interface RemoteManifestItem {
+  remoteEntry: string;
+  remoteName: string;
+  exposedModule: string;
+  displayName: string;
+  routePath: string;
+  enabled: boolean;
+  requiredRoles: string[];
+}
+
+export type RemoteManifest = Record<string, RemoteManifestItem>;
+
+@Injectable({ providedIn: 'root' })
+export class RemoteManifestService {
+  private readonly http = inject(HttpClient);
+  private readonly manifestState = signal<RemoteManifest>({});
+
+  readonly manifest = this.manifestState.asReadonly();
+
+  async loadManifest(): Promise<void> {
+    const manifest = await firstValueFrom(
+      this.http.get<RemoteManifest>('/assets/config/remote-manifest.json')
+    );
+    this.manifestState.set(manifest);
+  }
+
+  getRemote(name: string): RemoteManifestItem | undefined {
+    return this.manifestState()[name];
+  }
+
+  isRemoteEnabled(name: string): boolean {
+    return !!this.getRemote(name)?.enabled;
+  }
+}
+```
+
+projects/shell/src/app/core/services/auth.service.ts
+
+```ts
+import { Injectable, signal } from '@angular/core';
+
+export interface CurrentUser {
+  id: string;
+  displayName: string;
+  roles: string[];
+  permissions: string[];
+}
+
+@Injectable({ providedIn: 'root' })
+export class AuthService {
+  private readonly userState = signal<CurrentUser | null>(null);
+
+  readonly user = this.userState.asReadonly();
+
+  isAuthenticated(): boolean {
+    return !!this.getAccessToken();
+  }
+
+  getAccessToken(): string | null {
+    return localStorage.getItem('access_token');
+  }
+
+  hasAnyRole(roles: string[]): boolean {
+    const userRoles = this.userState()?.roles || [];
+    return roles.some(role => userRoles.includes(role));
+  }
+
+  hasPermission(permission: string): boolean {
+    return this.userState()?.permissions.includes(permission) ?? false;
+  }
+
+  logout(): void {
+    localStorage.removeItem('access_token');
+    this.userState.set(null);
+  }
+}
+```
+
+projects/shell/src/app/core/services/locale.service.ts
+
+```ts
+import { Injectable } from '@angular/core';
+
+export type SupportedLocale = 'en' | 'hi';
+
+@Injectable({ providedIn: 'root' })
+export class LocaleService {
+  private readonly storageKey = 'selected_language';
+  private readonly supportedLocales: SupportedLocale[] = ['en', 'hi'];
+
+  initializeLocale(): void {
+    const locale = this.getCurrentLocale();
+    localStorage.setItem(this.storageKey, locale);
+    document.documentElement.lang = locale;
+  }
+
+  getCurrentLocale(): SupportedLocale {
+    const pathLocale = window.location.pathname.split('/').filter(Boolean)[0] as SupportedLocale | undefined;
+    if (pathLocale && this.supportedLocales.includes(pathLocale)) return pathLocale;
+
+    const savedLocale = localStorage.getItem(this.storageKey) as SupportedLocale | null;
+    if (savedLocale && this.supportedLocales.includes(savedLocale)) return savedLocale;
+
+    return 'en';
+  }
+
+  changeLocale(locale: SupportedLocale): void {
+    if (!this.supportedLocales.includes(locale)) return;
+    localStorage.setItem(this.storageKey, locale);
+
+    const segments = window.location.pathname.split('/').filter(Boolean);
+    if (segments[0] === 'en' || segments[0] === 'hi') {
+      segments[0] = locale;
+    } else {
+      segments.unshift(locale);
+    }
+
+    window.location.href = '/' + segments.join('/') + window.location.search + window.location.hash;
+  }
+}
+```
+
+projects/admin/src/app/modules/asset-management/models/asset.model.ts
+
+```ts
+export type AssetStatus = 'ACTIVE' | 'INACTIVE' | 'MAINTENANCE' | 'RETIRED';
+
+export interface Asset {
+  id: string;
+  assetCode: string;
+  name: string;
+  category: string;
+  location: string;
+  ownerDepartment: string;
+  purchaseDate?: string;
+  status: AssetStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+```
+
+projects/admin/src/app/modules/asset-management/models/asset-filter.model.ts
+
+```ts
+import { AssetStatus } from './asset.model';
+
+export interface AssetFilter {
+  searchText?: string;
+  category?: string;
+  location?: string;
+  status?: AssetStatus;
+  page: number;
+  size: number;
+}
+```
+
+projects/admin/src/app/modules/asset-management/models/asset-form.model.ts
+
+```ts
+import { AssetStatus } from './asset.model';
+
+export interface AssetFormModel {
+  assetCode: string;
+  name: string;
+  category: string;
+  location: string;
+  ownerDepartment: string;
+  purchaseDate?: string;
+  status: AssetStatus;
+}
+```
+
+projects/admin/src/app/modules/asset-management/services/asset-api.service.ts
+
+```ts
+import { HttpClient, HttpParams } from '@angular/common/http';
+import { inject, Injectable } from '@angular/core';
+import { Observable } from 'rxjs';
+import { Asset } from '../models/asset.model';
+import { AssetFilter } from '../models/asset-filter.model';
+import { AssetFormModel } from '../models/asset-form.model';
+
+export interface PageResult<T> {
+  items: T[];
+  page: number;
+  size: number;
+  total: number;
+}
+
+@Injectable({ providedIn: 'root' })
+export class AssetApiService {
+  private readonly http = inject(HttpClient);
+  private readonly baseUrl = '/api/admin/assets';
+
+  search(filter: AssetFilter): Observable<PageResult<Asset>> {
+    let params = new HttpParams()
+      .set('page', filter.page)
+      .set('size', filter.size);
+
+    if (filter.searchText) params = params.set('searchText', filter.searchText);
+    if (filter.category) params = params.set('category', filter.category);
+    if (filter.location) params = params.set('location', filter.location);
+    if (filter.status) params = params.set('status', filter.status);
+
+    return this.http.get<PageResult<Asset>>(this.baseUrl, { params });
+  }
+
+  getById(assetId: string): Observable<Asset> {
+    return this.http.get<Asset>(`${this.baseUrl}/${assetId}`);
+  }
+
+  create(payload: AssetFormModel): Observable<Asset> {
+    return this.http.post<Asset>(this.baseUrl, payload);
+  }
+
+  update(assetId: string, payload: AssetFormModel): Observable<Asset> {
+    return this.http.put<Asset>(`${this.baseUrl}/${assetId}`, payload);
+  }
+
+  delete(assetId: string): Observable<void> {
+    return this.http.delete<void>(`${this.baseUrl}/${assetId}`);
+  }
+}
+```
+
+============================================================
+15. ASSET COMPONENT RESPONSIBILITIES
+============================================================
+
+CreateAssetComponent
+- Reactive form to create a new asset.
+- Validate assetCode, name, category, location, ownerDepartment and status.
+- Submit through AssetApiService or AssetManagementFacade.
+- Navigate to `/admin/asset-management/manage` after success.
+
+EditAssetComponent
+- Read `assetId` from route params.
+- Load asset details.
+- Patch reactive form.
+- Save updates.
+
+ViewAssetComponent
+- Read `assetId` from route params.
+- Show read-only asset details.
+- Provide Edit and Back buttons.
+
+SearchAssetsComponent
+- Filter by text, category, location and status.
+- Show paginated results.
+- Navigate to View/Edit.
+
+ManageAssetsComponent
+- Main listing page.
+- Includes SearchAssetsComponent or integrated filters.
+- Create, View, Edit, Delete actions.
+- Confirm delete before API call.
+
+AssetManagementShellComponent
+- Contains page title, nested router outlet and feature navigation tabs.
+
+============================================================
+16. SAMPLE ASSET FORM COMPONENT PATTERN
+============================================================
+
+Use this pattern for Create and Edit components.
+
+```ts
+import { Component, inject } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { Router } from '@angular/router';
+import { AssetApiService } from '../../services/asset-api.service';
+
+@Component({
+  selector: 'app-create-asset',
+  standalone: true,
+  imports: [CommonModule, ReactiveFormsModule],
+  templateUrl: './create-asset.component.html',
+  styleUrl: './create-asset.component.scss'
+})
+export class CreateAssetComponent {
+  private readonly fb = inject(FormBuilder);
+  private readonly api = inject(AssetApiService);
+  private readonly router = inject(Router);
+
+  readonly form = this.fb.nonNullable.group({
+    assetCode: ['', [Validators.required, Validators.maxLength(50)]],
+    name: ['', [Validators.required, Validators.maxLength(120)]],
+    category: ['', Validators.required],
+    location: ['', Validators.required],
+    ownerDepartment: ['', Validators.required],
+    purchaseDate: [''],
+    status: ['ACTIVE' as const, Validators.required]
+  });
+
+  submit(): void {
+    if (this.form.invalid) {
+      this.form.markAllAsTouched();
+      return;
+    }
+
+    this.api.create(this.form.getRawValue()).subscribe(() => {
+      this.router.navigate(['/admin/asset-management/manage']);
+    });
+  }
+}
+```
+
+============================================================
+17. MULTILINGUAL CONFIGURATION - ANGULAR BUILT-IN i18n ONLY
+============================================================
+
+Use Angular built-in internationalization with `@angular/localize`.
+Do not use Transloco, ngx-translate or any other third-party translation provider.
+
+Important behavior:
+- Angular built-in i18n is primarily compile-time localization.
+- Text is translated using Angular i18n markers in templates or `$localize` in TypeScript.
+- Production usually creates one build per locale, for example `/en/` and `/hi/`.
+- Language switching navigates to the locale-specific deployed app path instead of changing JSON at runtime.
+
+Install Angular localize:
+
+```bash
+ng add @angular/localize
+```
+
+Create locale folders:
+
+```bash
+mkdir -p projects/shell/src/locale
+mkdir -p projects/admin/src/locale
+```
+
+Mark template text for translation:
+
+```html
+<h1 i18n="@@assetManagementTitle">Asset Management</h1>
+<button type="button" i18n="@@createAssetButton">Create Asset</button>
+<label i18n="@@assetCodeLabel">Asset Code</label>
+<input formControlName="assetCode" />
+```
+
+Mark TypeScript strings with `$localize`:
+
+```ts
+readonly pageTitle = $localize`:@@assetManagementTitle:Asset Management`;
+readonly saveSuccessMessage = $localize`:@@assetSaveSuccess:Asset saved successfully`;
+```
+
+Extract translation source files:
+
+```bash
+npm run extract-i18n:shell
+npm run extract-i18n:admin
+```
+
+This creates source locale files such as:
+
+```text
+projects/shell/src/locale/messages.xlf
+projects/admin/src/locale/messages.xlf
+```
+
+Create Hindi translation files by copying and translating the XLIFF files:
+
+```bash
+cp projects/shell/src/locale/messages.xlf projects/shell/src/locale/messages.hi.xlf
+cp projects/admin/src/locale/messages.xlf projects/admin/src/locale/messages.hi.xlf
+```
+
+Example XLIFF translation unit:
+
+```xml
+<trans-unit id="assetManagementTitle" datatype="html">
+  <source>Asset Management</source>
+  <target>एसेट प्रबंधन</target>
+</trans-unit>
+```
+
+Configure `angular.json` i18n for the shell application:
+
+```json
+{
+  "projects": {
+    "shell": {
+      "i18n": {
+        "sourceLocale": {
+          "code": "en",
+          "baseHref": "/en/"
+        },
+        "locales": {
+          "hi": {
+            "translation": "projects/shell/src/locale/messages.hi.xlf",
+            "baseHref": "/hi/"
+          }
+        }
+      },
+      "architect": {
+        "build": {
+          "options": {
+            "localize": ["en"]
+          },
+          "configurations": {
+            "production": {
+              "localize": ["en", "hi"],
+              "optimization": true,
+              "outputHashing": "all"
+            },
+            "en": {
+              "localize": ["en"]
+            },
+            "hi": {
+              "localize": ["hi"]
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+Configure the admin remote similarly with its own locale files:
+
+```json
+{
+  "projects": {
+    "admin": {
+      "i18n": {
+        "sourceLocale": {
+          "code": "en",
+          "baseHref": "/en/admin/"
+        },
+        "locales": {
+          "hi": {
+            "translation": "projects/admin/src/locale/messages.hi.xlf",
+            "baseHref": "/hi/admin/"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+LocaleService for shell language switching:
+
+`projects/shell/src/app/core/services/locale.service.ts`
+
+```ts
+import { Injectable } from '@angular/core';
+
+export type SupportedLocale = 'en' | 'hi';
+
+@Injectable({ providedIn: 'root' })
+export class LocaleService {
+  private readonly storageKey = 'selected_language';
+  private readonly supportedLocales: SupportedLocale[] = ['en', 'hi'];
+
+  initializeLocale(): void {
+    const locale = this.getCurrentLocale();
+    localStorage.setItem(this.storageKey, locale);
+    document.documentElement.lang = locale;
+  }
+
+  getCurrentLocale(): SupportedLocale {
+    const pathLocale = window.location.pathname.split('/').filter(Boolean)[0] as SupportedLocale | undefined;
+
+    if (pathLocale && this.supportedLocales.includes(pathLocale)) {
+      return pathLocale;
+    }
+
+    const savedLocale = localStorage.getItem(this.storageKey) as SupportedLocale | null;
+    if (savedLocale && this.supportedLocales.includes(savedLocale)) {
+      return savedLocale;
+    }
+
+    return 'en';
+  }
+
+  changeLocale(locale: SupportedLocale): void {
+    if (!this.supportedLocales.includes(locale)) return;
+
+    localStorage.setItem(this.storageKey, locale);
+
+    const segments = window.location.pathname.split('/').filter(Boolean);
+    const firstSegment = segments[0];
+
+    if (firstSegment === 'en' || firstSegment === 'hi') {
+      segments[0] = locale;
+    } else {
+      segments.unshift(locale);
+    }
+
+    const nextPath = '/' + segments.join('/');
+    window.location.href = nextPath + window.location.search + window.location.hash;
+  }
+}
+```
+
+LanguageSwitcherComponent should call `LocaleService.changeLocale('en')` or `LocaleService.changeLocale('hi')`.
+
+Example language switcher template:
+
+```html
+<label for="language" i18n="@@languageLabel">Language</label>
+<select id="language" [value]="currentLocale()" (change)="changeLanguage($any($event.target).value)">
+  <option value="en">English</option>
+  <option value="hi">हिन्दी</option>
+</select>
+```
+
+Example language switcher component:
+
+```ts
+import { Component, computed, inject } from '@angular/core';
+import { LocaleService, SupportedLocale } from '../../../services/locale.service';
+
+@Component({
+  selector: 'app-language-switcher',
+  standalone: true,
+  templateUrl: './language-switcher.component.html',
+  styleUrl: './language-switcher.component.scss'
+})
+export class LanguageSwitcherComponent {
+  private readonly locale = inject(LocaleService);
+
+  readonly currentLocale = computed(() => this.locale.getCurrentLocale());
+
+  changeLanguage(locale: SupportedLocale): void {
+    this.locale.changeLocale(locale);
+  }
+}
+```
+
+HTTP language header:
+- Use `languageInterceptor` to set `Accept-Language` from `LocaleService.getCurrentLocale()`.
+
+Deployment notes:
+- Deploy shell locale builds under `/en/` and `/hi/`.
+- Deploy admin remote locale builds so each shell locale loads the matching admin `remoteEntry.js`.
+- Keep remote manifest locale-aware when needed:
+
+```json
+{
+  "admin": {
+    "remoteEntry": "/en/mfe/admin/remoteEntry.js",
+    "remoteEntryByLocale": {
+      "en": "/en/mfe/admin/remoteEntry.js",
+      "hi": "/hi/mfe/admin/remoteEntry.js"
+    },
+    "remoteName": "admin",
+    "exposedModule": "./Routes",
+    "displayName": "Admin",
+    "routePath": "admin",
+    "enabled": true,
+    "requiredRoles": ["ADMIN", "ASSET_MANAGER"]
+  }
+}
+```
+
+============================================================
+18. THEME AND LAYOUT REQUIREMENTS
+============================================================
+
+ShellLayoutComponent:
+- Header at top.
+- Sidebar with routes.
+- Main content with router outlet.
+- Footer.
+- Responsive layout.
+- Breadcrumb component.
+
+AdminLayoutComponent:
+- Admin toolbar.
+- Admin sidebar menu.
+- Nested router outlet.
+- Admin-specific theme wrapper.
+
+Global SCSS:
+- Use CSS variables for theme tokens.
+- Support light and dark theme.
+- Keep component styles small to satisfy production budgets.
+
+Example tokens:
+
+```scss
+:root {
+  --color-primary: #2563eb;
+  --color-primary-dark: #1d4ed8;
+  --color-bg: #f8fafc;
+  --color-surface: #ffffff;
+  --color-text: #0f172a;
+  --color-muted: #64748b;
+  --layout-header-height: 64px;
+  --layout-sidebar-width: 260px;
+}
+
+[data-theme='dark'] {
+  --color-bg: #020617;
+  --color-surface: #0f172a;
+  --color-text: #e2e8f0;
+  --color-muted: #94a3b8;
+}
+```
+
+============================================================
+19. ENVIRONMENT CONFIGURATION
+============================================================
+
+projects/shell/src/environments/environment.ts
+
+```ts
+export const environment = {
+  production: false,
+  apiBaseUrl: 'http://localhost:8080/api',
+  remoteManifestUrl: '/assets/config/remote-manifest.json',
+  defaultLanguage: 'en',
+  supportedLanguages: ['en', 'hi']
+};
+```
+
+projects/shell/src/environments/environment.production.ts
+
+```ts
+export const environment = {
+  production: true,
+  apiBaseUrl: 'https://api.example.com/api',
+  remoteManifestUrl: '/assets/config/remote-manifest.json',
+  defaultLanguage: 'en',
+  supportedLanguages: ['en', 'hi']
+};
+```
+
+Use similar environment files for admin.
+
+============================================================
+20. PRODUCTION-GRADE MICROFRONTEND CHECKLIST
+============================================================
+
+Architecture:
+- Shell owns global authentication, navigation, layout and remote discovery.
+- Remote owns its feature routes, feature services and feature UI.
+- Shared libraries contain only stable contracts and reusable UI. Shell-only utilities stay inside `projects/shell/src/app/shared`.
+- Avoid tight coupling from remote to shell internals.
+
+Security:
+- Validate authentication and authorization on backend also.
+- Frontend guards are UX controls, not security boundaries.
+- Use HTTPS for remoteEntry files in production.
+- Use CSP headers.
+- Restrict CORS to trusted origins.
+- Add versioned remote deployment paths, for example `/mfe/admin/v1/remoteEntry.js`.
+
+Performance:
+- Lazy load all feature routes.
+- Keep shared dependencies singleton.
+- Use production budgets.
+- Avoid loading all remotes at startup unless required.
+- Prefer dynamic remote manifest loading.
+
+Reliability:
+- Add remote-unavailable route/page.
+- Log remote load failures.
+- Allow disabling a remote from remote-manifest.json.
+- Keep shell backwards-compatible with at least one previous remote version.
+
+Testing:
+- Unit tests for guards, interceptors, services and asset forms.
+- Integration tests for remote route loading.
+- E2E tests for asset create/edit/view/search/manage flow.
+
+CI/CD:
+- Build shell and remote independently.
+- Deploy admin remote first, then update manifest.
+- Use immutable build assets with output hashing.
+- Roll back by pointing manifest to previous remote version.
+
+============================================================
+21. CODE GENERATOR PROMPT
+============================================================
+
+Paste this prompt into an AI code generator if you want it to create the actual files:
+
+```
+Create a latest stable Angular 21+ enterprise microfrontend workspace named `enterprise-mfe-workspace`.
+
+Use strict TypeScript, standalone components, SCSS, lazy-loaded routes, production build budgets and Webpack Module Federation.
+
+Create these Angular projects:
+1. `shell` host application on port 4200.
+2. `admin` remote microfrontend on port 4201.
+3. `shared-ui` library.
+4. `shared-data-access` library.
+
+Do NOT create a `shared-util` Angular library. Manage shared utilities inside the shell application under `projects/shell/src/app/shared`. The admin remote must remain independently deployable and must not import from shell internals.
+
+Configure Webpack Module Federation:
+- Shell is the host.
+- Admin is a remote named `admin`.
+- Admin exposes `./Routes` from `projects/admin/src/app/remote-entry/entry.routes.ts`.
+- Admin exposes `./AssetManagementRoutes` from `projects/admin/src/app/modules/asset-management/asset-management.routes.ts`.
+- Share Angular, RxJS and common dependencies as singleton with strict versions.
+- Provide development and production webpack config files.
+- Use dynamic remote manifest for production.
+
+For the shell application create this architecture:
+- `shared/constants`
+- `shared/utilities`
+- `shared/validators`
+- `shared/types`
+- `core/config`
+- `core/guards`
+- `core/interceptors`
+- `core/services`
+- `core/utilities`
+- `core/theme/components`
+- `core/theme/layouts`
+- `modules`
+- `services`
+- `interceptors`
+- `utilities`
+
+For the admin remote create this architecture:
+- `core/config`
+- `core/guards`
+- `core/interceptors`
+- `core/services`
+- `core/utilities`
+- `core/theme/components`
+- `core/theme/layouts`
+- `modules`
+- `services`
+- `interceptors`
+- `utilities`
+
+Do not make admin import shell shared utilities directly. If admin needs similar helpers, keep admin-local utilities or move only stable reusable contracts into `shared-data-access`.
+
+In shell core theme create:
+- app-header
+- app-sidebar
+- app-footer
+- breadcrumbs
+- language-switcher
+- shell-layout
+- auth-layout
+- error-layout
+
+In admin core theme create:
+- admin-toolbar
+- admin-sidebar-menu
+- admin-page-title
+- admin-layout
+- admin-feature-layout
+
+In admin modules create `asset-management` with:
+- asset-management-shell page
+- create-asset component
+- edit-asset component
+- view-asset component
+- search-assets component
+- manage-assets component
+- models: asset.model.ts, asset-filter.model.ts, asset-form.model.ts
+- services: asset-api.service.ts, asset-management.facade.ts
+- routes: asset-management.routes.ts
+
+Add guards:
+- shell authGuard
+- shell roleGuard
+- shell mfeAvailableGuard
+- admin adminAuthGuard
+- admin assetPermissionGuard
+
+Add interceptors:
+- authTokenInterceptor
+- errorInterceptor
+- languageInterceptor
+- correlationIdInterceptor
+- adminApiPrefixInterceptor
+- assetErrorInterceptor
+
+Add multilingual support with Angular built-in i18n / @angular/localize only:
+- supported languages: English and Hindi
+- translation files using XLIFF: `messages.xlf` and `messages.hi.xlf`
+- language switcher that redirects to locale-specific builds, for example `/en/` and `/hi/`
+- Accept-Language HTTP header from the current Angular locale
+- persisted selected language in localStorage
+
+Add services:
+- AuthService
+- LoggerService
+- NotificationService
+- StorageService
+- LocaleService
+- RemoteManifestService
+- AdminContextService
+- AssetApiService
+- AssetManagementFacade
+
+Add route configuration:
+- Shell route `/dashboard`
+- Shell route `/admin` loading admin remote routes through Module Federation
+- Admin route `/dashboard`
+- Admin route `/asset-management`
+- Asset child routes `/manage`, `/search`, `/create`, `/:assetId/view`, `/:assetId/edit`
+
+Asset management requirements:
+- Create form with validation.
+- Edit form loads by assetId and updates.
+- View page is read-only.
+- Search page filters by text, category, location and status.
+- Manage page lists assets with create, view, edit and delete actions.
+- Use typed models and reactive forms.
+
+Production requirements:
+- output hashing enabled
+- optimization enabled
+- source maps disabled for production
+- build budgets configured
+- HTTPS-compatible remote URLs
+- remote unavailable fallback
+- environment files for dev and prod
+- README with run, build, deploy and rollback instructions
+
+Generate clean, compilable Angular code and avoid deprecated APIs.
+```
+
+============================================================
+22. RUN AND BUILD
+============================================================
+
+Development:
+
+```bash
+npm run start:admin
+npm run start:shell
+```
+
+Or:
+
+```bash
+npm run start:all
+```
+
+Production build:
+
+```bash
+npm run build
+```
+
+Expected URLs:
+
+```text
+Shell: http://localhost:4200
+Admin remote: http://localhost:4201
+Admin remote entry: http://localhost:4201/remoteEntry.js
+Asset management route through shell: http://localhost:4200/admin/asset-management/manage
+```
+
+============================================================
+23. FINAL NOTES
+============================================================
+
+- Angular 22 may be available as release candidate. For production, use the latest stable Angular 21.x until Angular 22 stable is officially released.
+- Keep all remotes independently deployable.
+- Never put backend authorization only in frontend guards.
+- Keep shared libraries small and stable. Do not create a shared-util library; keep shell shared utilities in the shell app.
+- For enterprise deployments, version the remote path and control rollout by updating the shell remote manifest.
